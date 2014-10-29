@@ -6,6 +6,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
+\usepackage{amsmath}
 \usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=black]{hyperref}
 
 % color adjustment and creation
@@ -31,6 +32,8 @@
 \date{\color{lightblue}Februar 2014}
 \maketitle
 
+\tableofcontents
+
 \begin{abstract}
 Dieses Dokument ist als eine Einführung in die Welt der Threadprogrammierung zu verstehen. Dabei wird in den Beispielen konsequent C als Programmiersprache verwendet und davon ausgegangen, dass der Leser ein wesentliches Verständnis für die Funktionsweise von unixoiden Betriebssystemen besitzt. 
 \end{abstract}
@@ -38,60 +41,66 @@ Dieses Dokument ist als eine Einführung in die Welt der Threadprogrammierung zu
 \section{Allgemeines}
 \subsection{Kernel- und User-Threads}
 Es wird zwischen sog. User- und Kernel-Threads unterschieden. 
-Der POSIX Standard Pthreads definiert einen Satz von C-Tpyen und Funktionen, die plattformunabhängiges Programmieren mit Kernel-Threads bieten. Kernel-Threads werden vom Betriebssystem verwaltet. Hierbei besitzt ein Prozess entweder einen oder mehrere Threads, die jeweils gescheduled ablaufen. Jeder Prozess hat nach wie vor seinen eigenen Speicherbereich, geöffnete Dateien, ein Datensegment und ein Codesegment. Wenn der Prozess nur einen Kernel-Thread besitzt, verfügt er nur über einen Befehlszähler und ein Stacksegment. Wenn hingegen mehrere Kernel-Threads innerhalb des Prozesses ``laufen'', wird für jeden Thread ein separater/es Befehlszähler bzw. Stacksegment mitgeführt. Einen Prozess mit n Threads liegt nennt man Task. \\ 
-User-Threads oder Userlevel-Threads sind keine Threads im herkömmlichen Sinne. Sie ermöglichen zwar die ``parallele'' Abarbeitung von Anweisungen, allerdings ist die Funktionalität dabei nicht direkt im Kernel implementiert. Der Kontextwechsel zwischen den einzelnen User-Threads übernimmt dabei eine User-Thread-Bibliothek, die somit auch über einen eigenen Scheduler verfügen muss, der nicht im Kernel, sondern im Userland ausgeführt wird. Folglich weiß das Betriebssystem nichts von der Existenz von User-Threads. Duch das Fehlen des priviligierten Prozessor-Modus kann nur kooperatives Scheduling betrieben werden. Kernel-Threads werden hingegen präemptiv gescheduled.
+Der POSIX Standard Pthreads definiert einen Satz von C-Objekten und -Funktionen, die plattformunabhängiges Programmieren mit Kernel-Unterstützung bieten. Kernel-Threads werden vom Betriebssystem verwaltet. Hierbei besitzt ein Prozess entweder einen oder mehrere Threads, die jeweils innerhalb eines Schedulings ablaufen. Jeder Prozess hat nach wie vor seinen eigenen Speicherbereich, geöffnete Dateien, ein Daten- und ein Codesegment. Wenn ein Prozess nur einen Kernel-Thread besitzt, verfügt er nur über einen Befehlszähler und ein Stacksegment. Wenn hingegen mehrere Kernel-Threads innerhalb des Prozesses ausgeführt werden, wird für jeden Thread ein separater Befehlszähler bzw. ein separates Stacksegment mitgeführt. Einen Prozess mit n Threads nennt man Task. \\ 
+User-Threads oder Userland-Threads sind keine Threads im Sinne der obigen Darstellung. Sie ermöglichen zwar die ``parallele'' Abarbeitung von Anweisungen, die Verwaltungsalgorithmen hierfür sind jedoch nicht direkt im Kernel implementiert. Der Kontextwechsel zwischen den einzelnen Userland-Threads übernimmt nun eine Thread-Bibliothek außerhalb des Kernellands. Diese verfügt offensichtlich auch über einen eigenen Scheduler. Aus diesem Grund weiß das Betriebssystem nichts von der Existenz aktiver Userland-Threads. Daher, und weil die Userland-Bibliothek nicht im priviligierten Prozessormodus ausgeführt wird, kann nur kooperatives Scheduling betrieben werden. Kernel-Threads werden hingegen präemptiv im Kernel Verwaltet.
 
 \subsection{Implementierungen}
 \begin{itemize}
-	\item User-Threads
+	\item Userland-Threads
 	\begin{itemize}
 		\item Linux: LinuxThreads (nicht mehr weiterentwickelt)
 		\item Windows: seit Windows 98 Fibers
-		\item JVM verwendet Green Threads, falls der JVM-Host keine Kernel-Threads bietet
+		\item JVM verwendet Green Threads, falls der JVM-Host keine Kernel-Threads bietet. Ansonsten greift die JAVA-Runtime auf Betriebssystemeigene Threading-Bibliotheken zurück. Dieses Verhalten kann ggf. vor dem Übersetzen konfiguriert werden.
 	\end{itemize}
 
 	\item Kernel-Threads
 	\begin{itemize}
-		\item Linux: Native Posix Thread Library (NPTL)
+		\item Linux: Native Posix Thread Library (NPTL). Pthreads schalt NPTL ein und versteckt plattformspezifische Details..
 		\item Windows: Funktionen der win32/64-API
 	\end{itemize}
 \end{itemize}
 
 \subsection{Plattformunabhängigkeit}
-Nahezu alle modernen UNIX basierten Betriebssysteme halten sich an den POSIX-Standard. Die Impelemntierungen der PThreads-Library Unterscheiden sich allerdings stark im Hinblick auf Standardwerte. Beispielsweise beträgt die größe des Stacks für Thread-Routinen auf Plattform A 2\^{}13 Byte, auf Plattform B jedoch lediglich 2\^{}10 Byte. Den vollständigen POSIX-Standard kann man auf der Webseite opengroups.org einsehen. \\
-(http://www.opengroup.org/onlinepubs/007904975/toc.htm)
+Nahezu alle modernen UNIX basierten Betriebssysteme halten sich grundlegend an den POSIX-Standard.
+\footnote{Ausnahmen bestätigen auch hier wie immer die Regel. Viele UNIX-artige Kernel orientieren sich an der POSIX-Spezifikation, jedoch ist z.B. Linux POSIX ``nur weitgehend kompatibel'' Im Falle von Linux wurden jedoch viele POSIX vorschriften ignoriert, da sie historisch bedingt limitierend wirken.} 
+Die Impelemntierungen der Pthreads-Library unterscheiden sich stark im Hinblick auf Standardwerte. Beispielsweise könnte die Größe des Stacks für Thread-Routinen auf Plattform A \(2^{13}\) Byte, auf Plattform B jedoch lediglich \(2^{10}\) Byte betragen. Der vollständige POSIX-Standard kann auf der Webseite opengroups.org eingesehen werden. \footnote{http://www.opengroup.org/onlinepubs/007904975/toc.htm}
+\\
 
 \section{Einführung in POSIX-Threads}
 
-Die Bezeichner aller Funktionen haben das Präfix "pthread\_". Man kann die Funktionen in folgende vier Gruppen einteilen:
-
-\begin{enumerate}
-	\item Thread Management
-	\item Wechselseitiger Ausschluss
-	\item Bedingungsvariablen
-	\item Synchronsiationsfunktionen
-\end{enumerate}
+Im Folgenden werden zunächst die meistgenutzten Funktionen in vier Kategorien näher beschrieben.
+Die Bezeichner aller Funktionen haben das Präfix "pthread\_". 
+Die exakte Syntax jeder Pthreads-Funktion kann mithilfe des Kommandos ``man'' unter UNIX/Linux-Systemen
+abgefragt werden. Beispiel: ``man pthread\_create''
+Außerdem sei eine sehr ausführliche Referenz empfohlen. \footnote{http://cursuri.cs.pub.ro/~apc/2003/resources/pthreads/uguide/document.htm}
+Die folgenden kurzbeschreibungen beschränken sich auf die nötigsten Informationen. Insbesondere werden die meisten Fehlerrückgabewerte nicht
+beschrieben. Hierzu sollte die Online-Referenz konsultiert werden.
 
 \subsection{Thread-Management}
 \subsubsection{Funktionen}
 \begin{itemize}
-	\item \lstinline$int pthread_create(pthread_t *thread, const pthread_attr_t *attribute, void *(*function)(void *), void *args);$\\
-	Dient der Erstellung von Threads. Die Funktion gibt 0 zurück, wenn sie erfolgreich war, ansonsten einen Fehlercode ungleich 0.  Returnstatements in einer in einem Thread ausgeführten Funktion beenden den jeweiligen Thread. Der Aufruf von \lstinline$void exit(x);$ in einem Thread beendet den gesamten Task, also alle Threads, die zum Prozess.
+	\item \lstinline$int pthread_create(pthread_t *thread, const pthread_attr_t *attribute, void *(*function)(void *), void *args)$\\
+	Diese Routine dient der Erstellung von Threads. Die Funktion gibt 0 zurück, wenn die Ausführung erfolgreich war, ansonsten einen Fehlercode ungleich 0. 
+	Returnstatements in einer in einem Thread ausgeführten Funktion beenden den jeweiligen Thread. 
+	Der Aufruf von \lstinline$void exit(x)$ innerhalb eines Threads beendet den gesamten Prozess.
 
-	\item \lstinline$void pthread_exit(void *return);$\\
-	Führt zur Beendigung eines aufrufenden Threads.
+	\item \lstinline$void pthread_exit(void *return)$\\
+	Ein derartiger Aufruf führte zur Beendigung des aufrufenden Threads.
 
-	\item \lstinline$void pthread_join(pthread_t *thread, void **thread_return);$\\
-	Routine zum Warten auf die Beendigung eines gestarteten Threads.
+	\item \lstinline$void pthread_join(pthread_t *thread, void **thread_return)$\\
+	Eine Routine zum Warten auf die Beendigung des gestarteten Threads \lstinline$pthread_t * thread$.
 
-	\item \lstinline$pthread_t pthread_self();$ \\
-	Ist die PThreads-Analogie zu \lstinline$int getid();$
+	\item \lstinline$pthread_t pthread_self()$ \\
+	Pthread\_self ist die Pthreads-Analogie zu \lstinline$int getid()$
 
-	\item \lstinline$int pthread_cancel(pthread_t thread);$
-	Fordert das System dazu auf den angegebenen Thread zu beenden. Die Exit-Handler des entsprechenden Threads (sofern eingerichtet) werden ausgeführt. Die Funktion kehrt unmittelbar nach Absetzen der Terminierungsanforderung zurück, da die Aufräumarbeiten asynchron im Kontext des zu beendenden Threads ausgeführt werden. Es gibt nur einen Error-Code, den die Funktion im Fehlerfall zurückgegeben wird (ERSCH), ansonsten wird, wie gewöhnlich, mit dem Wert 0 die erfolgreiche Ausführung signalisiert.
+	\item \lstinline$int pthread_cancel(pthread_t thread)$ \\
+	Diese Prozedur fordert das System dazu auf den angegebenen Thread zu beenden. 
+	Die Exit-Handler des entsprechenden Threads (sofern eingerichtet) werden ausgeführt und die Funktion kehrt unmittelbar nach Absetzen der Terminierungsanforderung zurück, da die Aufräumarbeiten asynchron im Kontext des zu beendenden Threads ausgeführt werden. 
+	Es gibt nur einen Fehlercode, den die Funktion im Fehlerfall zurückgegeben wird (ERSCH, vgl. man pthread\_cancel). 
+	Ansonsten wird, wie gewöhnlich, mit dem Wert 0 die erfolgreiche Ausführung signalisiert.
 \end{itemize}
 
-\subsection{Sourcecodebeispiel}
+\subsubsection{Sourcecodebeispiel}
 \begin{lstlisting}[name=Thread Management]
 #include <pthread.h>
 #include <stdlib.h>
@@ -99,7 +108,7 @@ Die Bezeichner aller Funktionen haben das Präfix "pthread\_". Man kann die Funk
 #include <string.h>
 
 void *printNum(void *num){
-	for(;;){}
+	for(;;);
 	return NULL;
 }
 
@@ -126,48 +135,46 @@ int main(int argc, char ** argv){
 \subsection{Wechselseitiger Ausschluss (Mutual Exclusion)}
 \subsubsection{Funktionen}
 
-Pthreads stellt einen Mechanisumus für Mutexe bereit. Die entsprechenden Funktionen sind mit pthreads\_mutex geprefixt. Die wichtigesten Funktionen sind:
+Die Pthreads-Bibliothek stellt einen Mechanisumus für Mutexe bereit. Die entsprechenden Funktionen sind mit pthreads\_mutex geprefixt. 
+Die wichtigesten Funktionen sind:
 
 \begin{itemize}
-\item \lstinline$int pthread_mutex_init(pthreads_mutex_t *mutex, pthread_mutexattr_t *attr);$ \\
-Initialisert einen Mutex, attr kann dabei zur genaueren Konfiguration verwendet werden. Setzen von attr = NULL, wenn die Standardwerte genügen. 
+\item \lstinline$int pthread_mutex_init(pthreads_mutex_t *mutex, pthread_mutexattr_t *attr)$ \\
+Initialisert einen Mutex. \lstinline$pthread_mutexattr_t *attr$ kann dabei zur Konfiguration verwendet werden. Das Setzen von attr = NULL genügt, wenn die Standardwerte ausreichend sind. Als Parameter \lstinline$pthread_mutext_t *mutex$ muss ein bereits initialisierter Zeiger mit der richtigen Größe übergeben werden, denn die Funktion selbst reserviert keinen Speicher!
 
-\item \lstinline$int pthread_mutex_destroy(pthread_mutex_t *mutex);$ \\
-Entfernt einen erstellten Mutex aus dem System. Gibt 0 zurück, wenn der Aufruf erfolgreich war, ansosnten wird ein Errorcode zurückgegeben. Mögliche Codes sind z.B.
+\item \lstinline$int pthread_mutex_destroy(pthread_mutex_t *mutex)$ \\
+Entfernt einen erstellten Mutex aus dem System. Die Funktion gibt 0 zurück, wenn der Aufruf erfolgreich war, ansonsten wird ein Fehlercode zurückgegeben. Mögliche Werte hierfür sind z.B.:
 \begin{itemize}
-	\item EBUSY: Mutex ist noch nicht wieder freigegeben.
+	\item EBUSY: Mutex ist noch nicht wieder freigegeben worden.
 	\item EINVAL: Es wurde eine Adresse übergeben, die keinen gültigen Mutex referenziert.
-	\item \ldots
 \end{itemize}
 
-\item \lstinline$int pthread_mutex_trylock(pthread_mutex_t *m);$ \\
-Versucht den Mutex zu schließen. Gibt 0 zurück, wenn der Mutex erfolgreich geschlossen werden konnte, ansosnten wird ein Error-Code zurückgegeben. Wichtige Errorcodes sind:
+\item \lstinline$int pthread_mutex_trylock(pthread_mutex_t *m)$ \\
+Versucht den Mutex zu schließen. Die Routine gibt 0 zurück, wenn der Mutex erfolgreich geschlossen werden konnte, ansonsten wird ein Fehlercode zurückgegeben. Wichtige Werte hierfür sind wiederum:
 \begin{itemize}
-	\item EINVAL: Der Pointer auf den Mutex ist ungültig
-	\item EBUSY: Mutex konnte nicht geschlossen werden, da er zum Zeitpunkt des Funktionsaufrufs schon geschlossen war
+	\item EINVAL: Der Pointer auf den Mutex ist ungültig.
+	\item EBUSY: Mutex konnte nicht geschlossen werden, da er zum Zeitpunkt des Funktionsaufrufs schon geschlossen war.
 \end{itemize}
 
-\item \lstinline$int pthread_mutex_timedlock(pthread_mutex_t *restrict m, const struct timespec *restrict timeout);$ \\
-Verhält sich wie pthread\_mutex\_lock(\ldots), mit dem Unterschied, dass nur timeout Zeitheinheiten blockiert wird. Wenn es nicht möglich war den Lock zu schließen, wird ETIMEDOUT zurückgegeben.
+\item \lstinline$int pthread_mutex_timedlock(pthread_mutex_t *restrict m, const struct timespec *restrict timeout)$ \\
+Verhält sich wie \lstinline$pthread_mutex_lock()$, mit dem Unterschied, dass nur \lstinline$timeout$ Zeitheinheiten gewartet wird. 
+Wenn es nicht möglich war den Mutex zu schließen, wird ETIMEDOUT zurückgegeben.
 
-\item \lstinline$int pthread_mutex_lock(pthread_utext_t *restrict m);$ \\
-Schließt einen Mutex. Wenn er bereits geschlossen war, blockiert die Funktion solange, bis der Thread, der den Mutex hält, diesen wieder freigibt. Auch hier wird 0 bei Erfolg und ein Errorcode bei einem Fehler zurückgegeben. Errorcodes sind z.B.
-\begin{itemize}
-	\item EINVAL: Falsche Parameter
-\end{itemize}
+\item \lstinline$int pthread_mutex_lock(pthread_utext_t *restrict m)$ \\
+Schließt einen Mutex. Wenn dieser bereits geschlossen ist, blockiert die Funktion solange, bis der Thread, der den Mutex hält, diesen wieder freigibt. Auch hier wird 0 bei Erfolg und ein Fehlercode bei einem Fehler zurückgegeben. Werte für den Fehlercode sind z.B.: \\ EINVAL: Falsche Parameter
 
-\item \lstinline$int pthread_mutex_unlock(pthread_mutex_t *m);$ \\
-Gibt einen geschlossenen Mutex wieder frei
+\item \lstinline$int pthread_mutex_unlock(pthread_mutex_t *m)$ \\
+Gibt einen geschlossenen Mutex wieder frei.
 
-\item \lstinline$int pthread_mutexattr_init(pthread_mutex_t *m);$ \\
-Initialisiert ein Attributobjekt vom Typ pthread\_mutexattr\_t
+\item \lstinline$int pthread_mutexattr_init(pthread_mutex_t *m)$ \\
+Initialisiert ein Attributobjekt vom Typ \lstinline$pthread_mutexattr_t$. \footnote{vgl. man pthread\_mutexattr_init}
 
-\item \lstinline$int pthread_mutexattr_destroy(pthread_mutex_t *m);$ \\
-Zerstört ein Mutexattributobjekt
+\item \lstinline$int pthread_mutexattr_destroy(pthread_mutex_t *m)$ \\
+Zerstört ein Mutexattributobjekt.
 
 \end{itemize}
 
-\subsubsection{Sourcecodebeispiel für die Synchonisierung mithilfe von Mutexen}
+\subsubsection{Sourcecodebeispiel}
 \begin{lstlisting}[name=Mutex]
 /* Creates one(!) file pointer every thread has access to. 
 	Synchronisation happens with the mutex sync which is initialized
@@ -187,9 +194,9 @@ struct f {
 
 /* routine executed by threads */
 void *writeSth(void *data){
-	struct f temp = *((struct f *) data);	
+	struct f temp = *((struct f *) data);
 	pthread_mutex_lock(temp.mut);
-	fprintf(temp.fptr, "Ich bin der Thread nummer: %d\n", temp.tid);
+	fprintf(temp.fptr, "I am thread with number: %d\n", temp.tid);
 	pthread_mutex_unlock(temp.mut);
 	return NULL;
 }
@@ -229,38 +236,163 @@ int main(int argc, char ** argv){
 
 \subsubsection{Funktionen für Bedingungsvariablen}
 
-Locks verhalten sich wie Semaphore, die mit dem Wert eins initialisiert wurden. Nur ein Thread kann bei dieser Art der Synchronsiation gleichzeitig in den kritischen Abschnitt. Bei komplexeren Problemen wie z.B. dem Erzeuger-Verbraucher-Problem ist es jedoch notwendig bis zu n Threads gleichzeitig in einem zu synchronisierenden Abschnitt arbeiten zu lassen. Dies wird durch die Kombination von Mutexen und Bedingungsvariablen ermöglicht. Bei der Verwendung geht man nach den folgenden Schritten vor:
+Pthread-Mutexe verhalten sich wie Semaphore, die mit dem Wert 1 initialisiert wurden. 
+Nur ein einziger Thread kann bei dieser Art der Synchronsiation zu einer beliebigen Zeit \(t\) den kritischen Abschnitt betreten. 
+Bei komplexeren Problemen, wie z.B. dem Erzeuger-Verbraucher-Problem, ist es jedoch notwendig, bis zu \(n\) Threads gleichzeitig in einem zu synchronisierenden Abschnitt arbeiten zu lassen. 
+Dies wird durch die Kombination von Mutexen und Bedingungsvariablen ermöglicht. 
+Um Bedingungsvariablen zu verwenden sind folgende Schritte notwendig: 
 
 \begin{enumerate}
-	\item Initialisierung von globalem Speicher, dessen Bearbeitung synchronisiert werden muss.
-	\item Initialisierung einer Bedingungsvariable. (Umgesetzt als Objekt der Pthreads-Bibliothek) 
-	\item Initialisierung eines Mutexes mit Bezug auf die Bedingungsvariable Erstellung der Threads.
+	\item Vereinbarung des zu synchronisierenden globalen Speichers.
+	\item Initialisierung einer Bedingungsvariable (dargestellt als Objekt der Pthreads-Bibliothek).
+	\item Initialisierung eines Mutexes mit Bezug auf die Bedingungsvariablenerstellung der Threads.
 \end{enumerate}
 
 Pthreads bietet folgende Funktionen für die Erstellung, Bearbeitung und Vernichtung von Bedingungsvariablen:
 
 \begin{itemize}
-
 	\item \lstinline$int pthreads_cond_init(pthread_cond_t *c, const pthread_condattr_t *restrict a)$ \\
-Initialisert ein zuvor deklariertes Objekt vom Typ pthread\_cond. Dabei kann ein Attribut übergeben. Die Initialisierung der Attribute erfolgt wie weiter unten beschrieben.
+	Initialisert ein zuvor deklariertes Objekt vom Typ \lstinline$pthread_cond_t$. 
+	Dabei kann ein Attribut-Objekt übergeben werden, welches weitere Feineinstellungen innerhalb
+	der Pthread-Bibliothek ermöglicht. 
+	Die Initialisierung dieser Objekte ist weiter unten beschrieben.
 
 	\item \lstinline$int pthread_cond_destroy(pthread_cond_t *c)$ \\
-Gibt die von c benötigten Ressourcen wieder frei.
+	Gibt die von \lstinline$pthread_cond_t *c$ benötigten Ressourcen wieder frei.
 
-	\item \lstinline$int pthread_condattr_init(pthread_condattr_t *c);$\\
-Initialisert ein zuvor deklariertes Objekt vom Typ pthread\_condattr\_t. Für Bedingungsvariablen ist nur das Attribut ``process-shared'' definiert. Wird eine Bedingungsvariable mit diesem Attribut initialisiert, so ist sie Prozessübergreifend sichtbar.
+	\item \lstinline$int pthread_condattr_init(pthread_condattr_t *c)$\\
+	Initialisert ein zuvor deklariertes Objekt vom Typ \lstinline$pthread_condattr_t$. 
+	Für Bedingungsvariablen ist nur das Attribut ``process-shared'' definiert. 
+	Wenn eine Bedingungsvariable mit diesem Attribut initialisiert wird, ist sie Prozessübergreifend sichtbar.
 
-	\item \lstinline$int pthread_condattr_destroy(pthread_condattr_t *c);$\\
-Entfernt ein Bedingungsvariablenattribut.
+	\item \lstinline$int pthread_condattr_destroy(pthread_condattr_t *c)$\\
+	Entfernt ein Bedingungsvariablenattribut.
 
-	\item \lstinline$int pthread_cond_wait(pthread_cond_t *c, pthread_mutex_t *m);$ \\
-Diese Routine sollte nur aufgerufen werden, wenn Mutex m gesperrt ist. Beim Aufruf wird der Mutex automatisch frei und der aktuelle Thread blockiert. Die Blockade hält solange an, bis das Signal (Pro Instanz einer Bedingungsvariable gibt es eine Signalquelle, die mit ihr assoziiert ist) empfangen wird. Der Mutex m wird, nachdem die Funktion zurückgegeben hat, automatisch gesperrt.
+	\item \lstinline$int pthread_cond_wait(pthread_cond_t *c, pthread_mutex_t *m)$ \\
+	Sollte nur aufgerufen werden, wenn Mutex \lstinline$pthread_mutext_t *m$ gesperrt ist. Beim Aufruf wird der Mutex automatisch frei und der aktuelle Thread blockiert. 
+	Die Blockade hält solange an, bis das Signal \footnote{Pro Instanz einer Bedingungsvariable gibt es eine Signalquelle, die mit ihr assoziiert ist} empfangen wird.
+	Der Mutex \lstinline$pthread_mutex_t$ wird, nachdem die Funktion fertigt ausgeführt wurde, automatisch gesperrt.
 
-	\item \lstinline$int pthread_cond_signal(pthread_cond_t*c);$ \\
-Wird verwendet, um einen gerade mit \lstinline$pthread_cond_wait(c,m);$ wartenden Thread aufzuwecken. Die Funktion sollte aufgerufen werden, wenn der Mutex m gesperrt ist. Außerdem muss nach dem Aufruf zusätzlich der Mutex entsperrt werden.
+	\item \lstinline$int pthread_cond_signal(pthread_cond_t *c)$ \\
+	Wird verwendet, um einen aktuell mittels \lstinline$pthread_cond_wait(c,m)$ wartenden Thread aufzuwecken. 
+	Die Funktion sollte nur aufgerufen werden, wenn der Mutex gesperrt ist. 
+	Des Weiteren muss nach dem Aufruf zusätzlich der Mutex entsperrt werden.
 
-	\item \lstinline$int pthread_cond_broadcast(pthread_cont_t *c);$\\
-Wird wie die vorherige Funktion verwendet, mit der Ausnahme, dass nun beliebig viele Wartende Threads angesprochen werden können.
+	\item \lstinline$int pthread_cond_broadcast(pthread_cont_t *c)$\\
+	Wird wie die vorherige Funktion verwendet, mit der Ausnahme, dass nun beliebig viele wartende Threads angesprochen werden können.
 
 \end{itemize}
+
+\section{Nachbildung von zählenden Semaphoren}
+Mithilfe von Mutexen, Barrieren und Bedingungsvariablen können in der Threadprogrammierung die meisten Synchronisationsprobleme
+gelöst werden. Es gibt jedoch einige Fälle in denen man gerne auf ``klassische'' zählende Semaphore zurückgreifen möchte oder muss.
+Wenn man z.B. eine Altsoftware optimieren und an aktuelle Gegebenheiten anpassen möchte, bieten sich Threads aufgrund ihrer 
+leichtgewichtigkeit besonders an. Damit nun keine vollständige Restrukturierung nötig wird, passt man nur die Implementierung
+der Semaphoroperationen (p, v, seminit, semdest) an und verwendet weiterhin diese Funktionen als Synchronisationsmittel innerhalb
+des Programms.
+
+\subsection{Aufbau von zählenden Semaphoren}
+Damit man die Nachbildung von zählenden Semaphoren mithilfe von binären Mutexen versteht, bedarf es eines Rückblicks auf die
+schematische Implementierung herkömmlicher Semaphore. 
+
+\begin{lstlisting}
+/* Basisstruktur */
+struct Semaphor { 
+	int value;
+	/* Liste der auf das Semaphor wartenden Prozesse */
+	struct ProcessList list; 
+};
+
+
+struct semaphor seminit(int start){
+	struct semaphor sem;
+	sem.value = start;
+	sem.list = create_processlist();
+
+	return sem;
+}
+
+pop(struct semaphor sem){
+	if(sem.value > 0){
+		/* Aufrufer der Funktion kann nun das Semaphor besitzen */
+		value--;
+	} else {
+		/* Fügt den aufrufenden Prozess/Thread der Semaphor-Prozessliste
+			hinzu, die die Warteschlange darstellt. */
+		einketten(mypid, sem.list);
+		/* Blockiert für unbestimmte Zeit */
+		block(); 
+	}
+}
+
+/* V-Operation */
+vop(struct semaphor sem){
+	int procedure_id;
+	if(is_empty(sem.list)){
+		sem.value++;
+	} else {
+		procedure_id = get_random(sem.list);
+		unblock(procedure_id);
+	}
+}
+\end{lstlisting}
+
+\subsection{Schematische Nachbildung}
+Im Folgenden wird pseudo Code gezeigt, der das grundlegende Verfahren bei der
+Nachbildung von zählenden Semaphoren erläutern soll.
+
+\begin{lstlisting}
+/* Struktur für ein zählendes Semaphor */
+struct sem_zs {
+	// Zur Realisierung eines Schutzes von "zähler" und "warten".
+   	struct semaphor mutex;
+	// Binäres Semaphor zur Realisierung des Wartens und Weckens
+   	struct semaphor sem; 
+   	
+	// Bekannter Semaphor-Zähler
+	int zaehler;
+	// Anzahl Wartender
+   	int warten;	
+};
+
+/* mit "n" als Initialisierungswert für zählendes Semaphor */
+seminit_z(struct sem_zs s, int n) {   
+   	seminit(s.sem, 0);
+   	seminit(s.mutex, 1);
+   	s.warten = 0;
+   	s.zaehler = n;
+}
+
+/* P-Operation für zählendes Semaphor */
+pop_z(struct sem_zs s){		
+   	P(s.mutex);
+   	if (s.zaehler > 0) {
+      	s.zaehler--; 
+		V( s.mutex);
+   	} else {
+      	s.warten++; 	// Anzahl Wartender erhöht sich
+      	V(s.mutex);
+      	P(s.sem);		// warten
+   	}
+}
+
+/* V-Operation für zählendes Semaphor */
+vop_z(struct sem_zs s){
+   	P(s.mutex);
+   	if(s.warten > 0) {
+      	s.warten--; 
+      	V(s.sem);	// aufwecken
+  	} else {
+     		s.zaehler++;
+   	}
+
+   	V(s.mutex);
+}
+\end{lstlisting}
+
+\subsection{Implementierung mithilfe von Pthreads}
+\begin{lstlisting}
+
+\end{lstlisting}
+
 \end{document}
