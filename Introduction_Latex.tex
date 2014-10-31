@@ -32,11 +32,14 @@
 \date{\color{lightblue}Februar 2014}
 \maketitle
 
-\tableofcontents
-
 \begin{abstract}
 Dieses Dokument ist als eine Einführung in die Welt der Threadprogrammierung zu verstehen. Dabei wird in den Beispielen konsequent C als Programmiersprache verwendet und davon ausgegangen, dass der Leser ein wesentliches Verständnis für die Funktionsweise von unixoiden Betriebssystemen besitzt. 
 \end{abstract}
+
+\tableofcontents
+
+
+
 
 \section{Allgemeines}
 \subsection{Kernel- und User-Threads}
@@ -167,7 +170,7 @@ Schließt einen Mutex. Wenn dieser bereits geschlossen ist, blockiert die Funkti
 Gibt einen geschlossenen Mutex wieder frei.
 
 \item \lstinline$int pthread_mutexattr_init(pthread_mutex_t *m)$ \\
-Initialisiert ein Attributobjekt vom Typ \lstinline$pthread_mutexattr_t$. \footnote{vgl. man pthread\_mutexattr_init}
+Initialisiert ein Attributobjekt vom Typ \lstinline$pthread_mutexattr_t$ . \footnote{vgl. man pthread\_mutexattr\_init}
 
 \item \lstinline$int pthread_mutexattr_destroy(pthread_mutex_t *m)$ \\
 Zerstört ein Mutexattributobjekt.
@@ -291,71 +294,25 @@ leichtgewichtigkeit besonders an. Damit nun keine vollständige Restrukturierung
 der Semaphoroperationen (p, v, seminit, semdest) an und verwendet weiterhin diese Funktionen als Synchronisationsmittel innerhalb
 des Programms.
 
-\subsection{Aufbau von zählenden Semaphoren}
-Damit man die Nachbildung von zählenden Semaphoren mithilfe von binären Mutexen versteht, bedarf es eines Rückblicks auf die
-schematische Implementierung herkömmlicher Semaphore. 
-
-\begin{lstlisting}
-/* Basisstruktur */
-struct Semaphor { 
-	int value;
-	/* Liste der auf das Semaphor wartenden Prozesse */
-	struct ProcessList list; 
-};
-
-
-struct semaphor seminit(int start){
-	struct semaphor sem;
-	sem.value = start;
-	sem.list = create_processlist();
-
-	return sem;
-}
-
-pop(struct semaphor sem){
-	if(sem.value > 0){
-		/* Aufrufer der Funktion kann nun das Semaphor besitzen */
-		value--;
-	} else {
-		/* Fügt den aufrufenden Prozess/Thread der Semaphor-Prozessliste
-			hinzu, die die Warteschlange darstellt. */
-		einketten(mypid, sem.list);
-		/* Blockiert für unbestimmte Zeit */
-		block(); 
-	}
-}
-
-/* V-Operation */
-vop(struct semaphor sem){
-	int procedure_id;
-	if(is_empty(sem.list)){
-		sem.value++;
-	} else {
-		procedure_id = get_random(sem.list);
-		unblock(procedure_id);
-	}
-}
-\end{lstlisting}
-
 \subsection{Schematische Nachbildung}
-Im Folgenden wird pseudo Code gezeigt, der das grundlegende Verfahren bei der
+Im Folgenden wird Pseudo-Code gezeigt, der das grundlegende Verfahren bei der
 Nachbildung von zählenden Semaphoren erläutern soll.
 
 \begin{lstlisting}
-/* Struktur für ein zählendes Semaphor */
+/* Struktur fuer ein zaehlendes Semaphor */
 struct sem_zs {
-	// Zur Realisierung eines Schutzes von "zähler" und "warten".
+	// Zur Realisierung eines Schutzes von "zaehler" und "warten".
    	struct semaphor mutex;
-	// Binäres Semaphor zur Realisierung des Wartens und Weckens
+	// Binaeres Semaphor zur Realisierung des Wartens und Weckens
    	struct semaphor sem; 
    	
-	// Bekannter Semaphor-Zähler
+	// Bekannter Semaphor-Zaehler
 	int zaehler;
 	// Anzahl Wartender
    	int warten;	
 };
 
-/* mit "n" als Initialisierungswert für zählendes Semaphor */
+/* Mit "n" als Initialisierungswert fuer zaehlendes Semaphor */
 seminit_z(struct sem_zs s, int n) {   
    	seminit(s.sem, 0);
    	seminit(s.mutex, 1);
@@ -363,20 +320,20 @@ seminit_z(struct sem_zs s, int n) {
    	s.zaehler = n;
 }
 
-/* P-Operation für zählendes Semaphor */
+/* P-Operation fuer zaehlendes Semaphor */
 pop_z(struct sem_zs s){		
    	P(s.mutex);
    	if (s.zaehler > 0) {
       	s.zaehler--; 
 		V( s.mutex);
    	} else {
-      	s.warten++; 	// Anzahl Wartender erhöht sich
+      	s.warten++; 	// Anzahl Wartender erhoeht sich
       	V(s.mutex);
       	P(s.sem);		// warten
    	}
 }
 
-/* V-Operation für zählendes Semaphor */
+/* V-Operation fuer zaehlendes Semaphor */
 vop_z(struct sem_zs s){
    	P(s.mutex);
    	if(s.warten > 0) {
@@ -392,7 +349,204 @@ vop_z(struct sem_zs s){
 
 \subsection{Implementierung mithilfe von Pthreads}
 \begin{lstlisting}
+/* Bildet zaehlende Semaphore nach */
+struct sem_zs {
+    pthread_mutex_t mutex;
+    pthread_mutex_t sem;
+    int cnt;
+    int wait;   
+};
 
+
+/***********************/
+/* Funktionsprototypen */
+/***********************/
+/* P/V-Operation auf ein zaehlendes Sem. 
+    Param: sem = Initialisiertes (!) semaphor
+    Return: 0 bei Erfolg und 1 bei Fehler*/
+int v(struct sem_zs *sem);
+int p(struct sem_zs *sem);
+
+/* Erzeugt und initialisiert ein Semaphor.
+    Param: num = Specifies the initial value for the Semaphor
+    Return: NULL bei Fehler und jeder andere Wert bei Erfolg */
+struct sem_zs *initsem(int num);
+
+/* Zerstoert ein Semaphor 
+    Param: sem = Specifies the semaphor one wants to destroy
+    Return: 0 bei Erfolg and 1 bei Feiler */
+int destsem(struct sem_zs *sem);
+
+/***********************/
+/* Implementierung	   */
+/***********************/
+
+struct sem_zs *initsem(int num) {
+    if(num < 0)
+        return NULL;
+    
+    struct sem_zs *res = malloc(sizeof(struct sem_zs)); 
+    if(res == NULL){
+        return NULL;
+    }   
+
+    res->wait = 0;
+    res->cnt = num;
+
+    pthread_mutex_init(&(res->sem), NULL);
+    pthread_mutex_init(&(res->mutex), NULL);
+
+    pthread_mutex_lock(&(res->sem));
+
+    return res;
+}
+
+int destsem(struct sem_zs *sem) {
+    if(sem == NULL)
+        return 1;
+    
+    pthread_mutex_destroy(&(sem->sem));
+    pthread_mutex_destroy(&(sem->mutex));
+
+    free(sem);
+
+    return 0;
+}
+
+int p(struct sem_zs *sem) {
+    if (sem == NULL)
+        return 1;
+
+    pthread_mutex_lock(&(sem->mutex));
+
+    if (sem->cnt > 0){
+        sem->cnt--;
+        pthread_mutex_unlock(&(sem->mutex));
+    } else {
+        sem->wait++;
+        pthread_mutex_unlock(&(sem->mutex));
+        pthread_mutex_lock(&(sem->sem));
+    }
+
+    return 0;
+}
+
+int v(struct sem_zs *sem) {
+    if (sem == NULL)
+        return 1;
+
+    pthread_mutex_lock(&(sem->mutex));
+
+    if(sem->wait > 0){
+        sem->wait--;
+        pthread_mutex_unlock(&(sem->sem));
+    } else {
+        sem->cnt++;
+    }
+
+    pthread_mutex_unlock(&(sem->mutex));
+
+    return 0;
+}
+\end{lstlisting}
+
+\section{Verwendung von nativen zählenden Semaphoren (POSIX)}
+Im vorangegangenen Kapitel wurde gezeigt, wie mit einfachen Mitteln
+aus Pthread-Mutexen und den zugehörigen Operationen, zählende Semaphore
+inclusive der bekannten P- und V-Operationen nachgebildet werden können.
+Dies ist jedoch nur sinnvoll, wenn man auf einem System arbeitet, das
+keine vernünftige, aus Threads heraus verwendbare, Semaphor-Implementierung
+bietet. Zum Glück entsprechen heute die meisten UNIX-artigen Betriebssysteme
+der POSIX-Spezifikation. Auf kompatiblen Systemen findet man die Header-Datei
+``semaphore.h'', welche die API für POSIX-Semaphore definiert.
+
+\subsection{Funktionen}
+\begin{itemize}
+\item 
+	\lstinline$int sem_open(sem_t *sem, int pshared, unsigned int value)$ \\
+	Initialisiert ein Semaphor mit dem Wert \lstinline$unsigned int value$.
+	Wenn \lstinline$int pshared$ auf den Wert 1 gesetzt wird, kann das Semaphor
+	von verschiedenen Prozessen genutzt werden. Ansonsten steht es lediglich
+	den Threads innerhalb eines Prozesses zur Verfügung. Der Benutzer der
+	Funktion ist selbst dafür verantwortlich, dass die Struktur \lstinline$sem_t *sem$
+	an einer geeigneten Stelle im Speicher platziert wird. Insbesondere ist
+	darauf zu achten, dass auf die Struktur bei \lstinline$pshared = 1$ von mehreren
+	Prozessen zugegriffen werden kann (vlg. shm-Segmente).
+
+\item
+	\lstinline$int sem_wait(sem_t *sem);$ \\
+	Blockiert den Aufrufer solange, bis das Semaphore von anderer Stelle
+	mihtilfe der Funktion sem\_post (siehe unten) freigegeben wurde.
+
+\item	
+	\lstinline$int sem_trywait(sem_t *sem);$ \\
+	Wie \lstinline$sem_wait$, mit folgendem Unterschied: \lstinline$sem_trywait()$ kehrt
+	sofort mit einem Fehlercode zurück, wenn die Dekrementierungsoperation nicht durchgeführt
+	werden konnte, wenn also \lstinline$sem$ den Wert 0 hatte.
+	Der Fehlercode ist: EAGAIN
+	
+\item
+	\lstinline$int sem_post(sem_t *sem);$ \\
+	Inkrementiert das Semaphor \lstinline$sem_t *sem$ oder kehrt mit einem Fehlercode
+	zurück. Eine häufige Ursache hierfür ist z.B. \lstinline$sem == NULL$;
+
+\end{itemize}
+
+\subsection{Compilerflags}
+Es muss mit ``-lrt'' gebaut werden.
+
+\subsection{Sourcecodebeispiel}
+\begin{lstlisting}
+#include <semaphore.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#define THREADS 20
+
+sem_t ok;
+int milk;
+
+void *buyer(void *arg){
+	/* P-Op */
+	sem_wait(&ok);
+	
+	milk++;
+	
+	sem_post(&ok);
+	
+	return NULL;
+}
+
+int main(int argc, char **argv){
+	pthread_t threads[THREADS];
+	int i;
+	milk = 0;
+	
+	int(sem_init(&ok, 0, 1)){
+		fprintf(stderr, "[main()] Could not initialize the semaphore!\n");
+		return EXIT_FAILURE;
+	}
+	
+	for(i=0; i<THREADS; i++){
+		if(pthreads_create(&threads[i], NULL, buyer, NULL)){
+			fprintf(stderr, "[main()]" Could not start threads!\n);
+			return EXIT_FAILURE;
+		}
+	}
+	
+	for(i=0; i<THREADS; i++){
+		if(pthreads_join(threads[i], NULL)){
+			fprintf(stderr, "[main()] Could not join the thread %d!\n");
+			return EXIT_FAILURE;
+		}
+	}
+	
+	sem_destroy(&ok);
+	printf("Total amount of milk units: %d\n", milk);
+	
+	return EXIT_SUCCESS;
+}
 \end{lstlisting}
 
 \end{document}
