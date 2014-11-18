@@ -289,8 +289,8 @@ Pthreads bietet folgende Funktionen für die Erstellung, Bearbeitung und Vernich
 \section{Nachbildung von zählenden Semaphoren}
 Mithilfe von Mutexen, Barrieren und Bedingungsvariablen können in der Threadprogrammierung die meisten Synchronisationsprobleme
 gelöst werden. Es gibt jedoch einige Fälle in denen man gerne auf ``klassische'' zählende Semaphore zurückgreifen möchte oder muss.
-Wenn man z.B. eine Altsoftware optimieren und an aktuelle Gegebenheiten anpassen möchte, bieten sich Threads aufgrund ihrer 
-leichtgewichtigkeit besonders an. Damit nun keine vollständige Restrukturierung nötig wird, passt man nur die Implementierung
+Wenn man z.B. eine Altsoftware optimieren oder an aktuelle Gegebenheiten anpassen möchte, bieten sich Threads aufgrund ihrer 
+leichtgewichtigkeit besonders an. Damit nun keine vollständige Restrukturierung nötig wird, passt man lediglich die Implementierung
 der Semaphoroperationen (p, v, seminit, semdest) an und verwendet weiterhin diese Funktionen als Synchronisationsmittel innerhalb
 des Programms.
 
